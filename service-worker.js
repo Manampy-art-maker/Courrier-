@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ar-v2';
+const CACHE_NAME = 'ar-v3';
 const FILES_TO_CACHE = [
   './index.html',
   './manifest.json',

@@ -32,6 +32,13 @@ button{border:0;border-radius:8px;padding:11px 14px;font-size:15px;font-weight:6
 .item h3{margin:0 0 4px;font-size:16px}
 .item p{margin:3px 0;font-size:14px}
 .muted{opacity:.7}
+.tag{display:inline-block;padding:4px 10px;border-radius:14px;font-size:13px;font-weight:700;margin:3px 5px 3px 0;color:#fff}
+.t-rej{background:#C62828}.t-rem{background:#1565C0}.t-ret{background:#2E7D32}.t-so{background:#F9A825;color:#0B2545}
+.l-rej{color:#C62828}.l-rem{color:#1565C0}.l-ret{color:#2E7D32}.l-so{color:#B07A00}
+@media(prefers-color-scheme:dark){.l-rej{color:#ff6b6b}.l-rem{color:#5aa9ff}.l-ret{color:#5fd068}.l-so{color:#ffd54a}}
+input.c-rej{border:2px solid #C62828}input.c-rem{border:2px solid #1565C0}input.c-ret{border:2px solid #2E7D32}input.c-so{border:2px solid #F9A825}
+input.err{border:2px solid #C62828;background:#fdecea}
+.req{color:#C62828}
 .acts{display:flex;gap:6px;margin-top:8px}
 .tools{display:flex;gap:8px;margin-bottom:12px}
 .tools input,.tools select{flex:1}
@@ -81,20 +88,21 @@ const esc=s=>String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&g
 const fmt=d=>d?d.split("-").reverse().join("/"):"—";
 
 function formHTML(p){return `
-<label>N° Arrivé</label><input type="text" inputmode="numeric" id="${p}num" placeholder="N° Arrivé">
+<label>N° Arrivé <span class="req">*</span></label><input type="text" inputmode="numeric" id="${p}num" placeholder="N° Arrivé">
 <label>Date</label><input type="date" id="${p}date">
 <label>Ministère</label><select id="${p}min">${MIN.map(m=>`<option>${m}</option>`).join("")}</select>
 <label>Observations</label><textarea id="${p}obs" placeholder="Observations…"></textarea>
-<div class="row"><div><label>Date remis</label><input type="date" id="${p}rem"></div>
-<div><label>Date retirer</label><input type="date" id="${p}ret"></div></div>
-<div class="row"><div><label>Date S.O</label><input type="date" id="${p}so"></div>
-<div><label>Date rejet</label><input type="date" id="${p}rej"></div></div>`}
+<div class="row"><div><label class="l-rem">Date remis</label><input type="date" class="c-rem" id="${p}rem"></div>
+<div><label class="l-ret">Date retirer</label><input type="date" class="c-ret" id="${p}ret"></div></div>
+<div class="row"><div><label class="l-so">Date S.O</label><input type="date" class="c-so" id="${p}so"></div>
+<div><label class="l-rej">Date rejet</label><input type="date" class="c-rej" id="${p}rej"></div></div>`}
 $("addForm").innerHTML=formHTML("a_");
 $("editForm").innerHTML=formHTML("e_");
 $("fm").innerHTML+=MIN.map(m=>`<option>${m}</option>`).join("");
 
 function read(p){return{num:$(p+"num").value.trim(),date:$(p+"date").value,min:$(p+"min").value,obs:$(p+"obs").value.trim(),rem:$(p+"rem").value,ret:$(p+"ret").value,so:$(p+"so").value,rej:$(p+"rej").value}}
 function fill(p,d){$(p+"num").value=d.num||"";$(p+"date").value=d.date||"";$(p+"min").value=d.min;$(p+"obs").value=d.obs||"";$(p+"rem").value=d.rem||"";$(p+"ret").value=d.ret||"";$(p+"so").value=d.so||"";$(p+"rej").value=d.rej||""}
+function ok(p,d){const n=$(p+"num");n.classList.toggle("err",!d.num);if(!d.num){n.focus();alert("N° Arrivé obligatoire");return false}if(!d.date){alert("Choisissez une date");return false}return true}
 function reset(){$("a_num").value="";$("a_date").value=new Date().toISOString().slice(0,10);$("a_obs").value="";$("a_rem").value="";$("a_ret").value="";$("a_so").value="";$("a_rej").value=""}
 
 function render(){
@@ -104,16 +112,15 @@ const rows=data.filter(d=>(!f||d.min===f)&&(!q||(d.num+" "+d.min+" "+d.obs).toLo
 $("list").innerHTML=rows.length?rows.map(d=>`<div class="card item">
 <h3>${d.num?"N° "+esc(d.num)+" · ":""}${esc(d.min)} <span class="muted" style="font-weight:400">· ${fmt(d.date)}</span></h3>
 ${d.obs?`<p>${esc(d.obs)}</p>`:""}
-<p class="muted">Date remis : ${fmt(d.rem)} &nbsp;|&nbsp; Date retirer : ${fmt(d.ret)}</p>
-<p class="muted">Date S.O : ${fmt(d.so)} &nbsp;|&nbsp; Date rejet : ${fmt(d.rej)}</p>
+<div>${d.rem?`<span class="tag t-rem">Remis : ${fmt(d.rem)}</span>`:""}${d.ret?`<span class="tag t-ret">Retirer : ${fmt(d.ret)}</span>`:""}${d.so?`<span class="tag t-so">S.O : ${fmt(d.so)}</span>`:""}${d.rej?`<span class="tag t-rej">Rejet : ${fmt(d.rej)}</span>`:""}</div>
 <div class="acts"><button class="sec sm" onclick="edit('${d.id}')">Modifier</button><button class="del sm" onclick="del('${d.id}')">Supprimer</button></div>
 </div>`).join(""):`<p class="muted" style="text-align:center">Aucun dossier. Ajoutez le premier ci-dessus.</p>`}
 
-$("addBtn").onclick=()=>{const d=read("a_");if(!d.date){alert("Choisissez une date");return}
+$("addBtn").onclick=()=>{const d=read("a_");if(!ok("a_",d))return;
 d.id=Date.now().toString(36);data.push(d);save();reset();render()};
 window.edit=id=>{editId=id;fill("e_",data.find(x=>x.id===id));$("dlg").showModal()};
 window.del=id=>{if(confirm("Supprimer ce dossier ?")){data=data.filter(x=>x.id!==id);save();render()}};
-$("saveBtn").onclick=()=>{const i=data.findIndex(x=>x.id===editId);if(i<0)return;data[i]={...read("e_"),id:editId};save();$("dlg").close();render()};
+$("saveBtn").onclick=()=>{const i=data.findIndex(x=>x.id===editId);if(i<0)return;const nd=read("e_");if(!ok("e_",nd))return;data[i]={...data[i],...nd,id:editId};save();$("dlg").close();render()};
 $("cancelBtn").onclick=()=>$("dlg").close();
 $("q").oninput=render;$("fm").onchange=render;
 
