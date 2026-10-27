@@ -33,6 +33,12 @@ button{border:0;border-radius:8px;padding:11px 14px;font-size:15px;font-weight:6
 .item p{margin:3px 0;font-size:14px}
 .muted{opacity:.7}
 .ok{background:#1e7d32;color:#fff}
+.k-rem{--k:#2f7cf6}.k-ret{--k:#2ea44f}.k-so{--k:#f2b705}.k-rej{--k:#e5484d}
+label.k-rem,label.k-ret,label.k-so,label.k-rej{color:var(--k)}
+input.k-rem,input.k-ret,input.k-so,input.k-rej{border:2px solid var(--k);border-radius:10px}
+.badges{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.bd{background:var(--k);color:#fff;font-size:13px;font-weight:700;padding:4px 10px;border-radius:999px}
+.bd.k-so{color:#0B2545}
 .dash summary{cursor:pointer;font-weight:700;font-size:17px;border-bottom:2px solid var(--acc);padding-bottom:4px;display:inline-block}
 .dash table{width:100%;border-collapse:collapse;margin-top:10px;font-size:14px}
 .dash th,.dash td{padding:6px 4px;text-align:center;border-bottom:1px solid var(--bd)}
@@ -95,10 +101,10 @@ function formHTML(p){return `
 <label>Date</label><input type="date" id="${p}date">
 <label>Ministère</label><select id="${p}min">${MIN.map(m=>`<option>${m}</option>`).join("")}</select>
 <label>Observations</label><textarea id="${p}obs" placeholder="Observations…"></textarea>
-<div class="row"><div><label>Date remis</label><input type="date" id="${p}rem"></div>
-<div><label>Date retirer</label><input type="date" id="${p}ret"></div></div>
-<div class="row"><div><label>Date S.O</label><input type="date" id="${p}so"></div>
-<div><label>Date rejet</label><input type="date" id="${p}rej"></div></div>`}
+<div class="row"><div><label class="k-rem">Date remis</label><input class="k-rem" type="date" id="${p}rem"></div>
+<div><label class="k-ret">Date retirer</label><input class="k-ret" type="date" id="${p}ret"></div></div>
+<div class="row"><div><label class="k-so">Date S.O</label><input class="k-so" type="date" id="${p}so"></div>
+<div><label class="k-rej">Date rejet</label><input class="k-rej" type="date" id="${p}rej"></div></div>`}
 $("addForm").innerHTML=formHTML("a_");
 $("editForm").innerHTML=formHTML("e_");
 $("fm").innerHTML+=MIN.map(m=>`<option>${m}</option>`).join("");
@@ -114,8 +120,7 @@ const rows=data.filter(d=>!d.done&&(!f||d.min===f)&&(!q||(d.num+" "+d.min+" "+d.
 $("list").innerHTML=rows.length?rows.map(d=>`<div class="card item">
 <h3>${d.num?"N° "+esc(d.num)+" · ":""}${esc(d.min)} <span class="muted" style="font-weight:400">· ${fmt(d.date)}</span></h3>
 ${d.obs?`<p>${esc(d.obs)}</p>`:""}
-<p class="muted">Date remis : ${fmt(d.rem)} &nbsp;|&nbsp; Date retirer : ${fmt(d.ret)}</p>
-<p class="muted">Date S.O : ${fmt(d.so)} &nbsp;|&nbsp; Date rejet : ${fmt(d.rej)}</p>
+${(d.rem||d.ret||d.so||d.rej)?`<div class="badges">${d.rem?`<span class="bd k-rem">Remis : ${fmt(d.rem)}</span>`:""}${d.ret?`<span class="bd k-ret">Retirer : ${fmt(d.ret)}</span>`:""}${d.so?`<span class="bd k-so">S.O : ${fmt(d.so)}</span>`:""}${d.rej?`<span class="bd k-rej">Rejet : ${fmt(d.rej)}</span>`:""}</div>`:""}
 <div class="acts"><button class="sec sm" onclick="edit('${d.id}')">Modifier</button><button class="ok sm" onclick="fin('${d.id}')">Terminé</button><button class="del sm" onclick="del('${d.id}')">Supprimer</button></div>
 </div>`).join(""):`<p class="muted" style="text-align:center">Aucun dossier en cours.</p>`;dashboard()}
 
