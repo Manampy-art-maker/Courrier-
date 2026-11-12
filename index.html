@@ -27,18 +27,23 @@ button{border:0;border-radius:8px;padding:11px 14px;font-size:15px;font-weight:6
 .sec{background:var(--bd);color:var(--tx)}
 .sm{padding:6px 10px;font-size:13px}
 .del{background:#b3261e;color:#fff}
+.ok{background:#1e7d32;color:#fff}
 .item{border-left:5px solid var(--acc)}
+.item.isdone{border-left-color:#2ea44f;opacity:.85}
 .card h2{border-bottom:2px solid var(--acc);padding-bottom:4px;display:inline-block}
 .item h3{margin:0 0 4px;font-size:16px}
 .item p{margin:3px 0;font-size:14px}
 .muted{opacity:.7}
-.ok{background:#1e7d32;color:#fff}
+.acts{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.tools{display:flex;gap:8px;margin-bottom:12px}
+.tools input,.tools select{flex:1}
 .k-rem{--k:#2f7cf6}.k-ret{--k:#2ea44f}.k-so{--k:#f2b705}.k-rej{--k:#e5484d}
 label.k-rem,label.k-ret,label.k-so,label.k-rej{color:var(--k)}
 input.k-rem,input.k-ret,input.k-so,input.k-rej{border:2px solid var(--k);border-radius:10px}
 .badges{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
 .bd{background:var(--k);color:#fff;font-size:13px;font-weight:700;padding:4px 10px;border-radius:999px}
 .bd.k-so{color:#0B2545}
+.bd.k-ok{--k:#1e7d32}
 .dash summary{cursor:pointer;font-weight:700;font-size:17px;border-bottom:2px solid var(--acc);padding-bottom:4px;display:inline-block}
 .dash table{width:100%;border-collapse:collapse;margin-top:10px;font-size:14px}
 .dash th,.dash td{padding:6px 4px;text-align:center;border-bottom:1px solid var(--bd)}
@@ -46,16 +51,19 @@ input.k-rem,input.k-ret,input.k-so,input.k-rej{border:2px solid var(--k);border-
 .dash th{font-size:12px;opacity:.8}
 .dash tfoot td{font-weight:700;border-top:2px solid var(--acc)}
 .c-rej{color:#e5484d;font-weight:700}.c-ok{color:#3fb950;font-weight:700}
-.acts{display:flex;gap:6px;margin-top:8px}
-.tools{display:flex;gap:8px;margin-bottom:12px}
-.tools input,.tools select{flex:1}
+.chk{display:flex;align-items:center;gap:8px;font-size:14px;margin:0 0 12px}
+.chk input{width:20px;height:20px}
 dialog{border:0;border-radius:12px;padding:0;width:92%;max-width:600px;background:var(--card);color:var(--tx)}
 dialog::backdrop{background:rgba(0,0,0,.5)}
 dialog form{padding:14px}
+.mbtn{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.mbtn button{flex:1 1 45%}
+#offl{display:none;background:#b3261e;color:#fff;text-align:center;font-size:13px;padding:4px}
 </style>
 </head>
 <body>
 <button id="instBtn" hidden style="display:none;width:100%;border:0;background:#F2B705;color:#0B2545;font-weight:700;padding:12px;font-size:15px">📲 Installer l'application</button>
+<div id="offl">Mode hors ligne : tout fonctionne, les données restent sur l'appareil</div>
 <header><small>Service du Personnel</small><h1>GESTION DE DOSSIER COURRIER</h1></header>
 <main>
 <div class="card">
@@ -70,10 +78,12 @@ dialog form{padding:14px}
 <input id="q" type="search" placeholder="Rechercher (N°, ministère…)">
 <select id="fm"><option value="">Tous les ministères</option></select>
 </div>
+<label class="chk"><input type="checkbox" id="sd"> Voir les dossiers terminés</label>
 <div id="list"></div>
-<div class="tools" style="margin-top:8px">
+<div class="tools" style="margin-top:8px;flex-wrap:wrap">
 <button class="sec sm" id="exp">Exporter</button>
 <button class="sec sm" id="imp">Importer</button>
+<button class="sec sm" id="rec">Récupérer anciennes données</button>
 <input type="file" id="file" accept="application/json" hidden>
 </div>
 </main>
@@ -81,25 +91,71 @@ dialog form{padding:14px}
 <dialog id="dlg"><form method="dialog" onsubmit="return false">
 <h2 style="margin:0 0 4px;font-size:17px">Modifier le dossier</h2>
 <div id="editForm"></div>
-<div class="row" style="margin-top:14px">
+<div class="mbtn">
 <button class="pri" style="margin:0" id="saveBtn">ENREGISTRER</button>
-<button class="sec" id="cancelBtn" style="flex:1">ANNULER</button>
+<button class="ok" id="finBtn">TERMINÉ</button>
+<button class="del" id="delBtn">SUPPRIMER</button>
+<button class="sec" id="cancelBtn">ANNULER</button>
 </div></form></dialog>
 
 <script>
-const MIN=["MEN MAN","MEN MAH","DRSP","CNCT","POLICE","ENVIRONMENT","SDSP II","SDSP F/ho","SRSP","DOUANE","SRB","CF","CRM","ECONOMIE","TRESOR","IMPOT","Topo","Domaine","Amenag","Fop","Inter","Techn","CHRD","AFFECTATIONS"];
+const MIN0=["MEN MAN","MEN MAH","DRSP","CNCT","POLICE","ENVIRONMENT","SDSP II","SDSP F/ho","SRSP","DOUANE","SRB","CF","CRM","ECONOMIE","TRESOR","IMPOT","Topo","Domaine","Amenag","Fop","Inter","Techn","CHRD","AFFECTATIONS"];
 const KEY="ar_dossiers_v1";
-let data=[];let editId=null;
-try{data=JSON.parse(localStorage.getItem(KEY)||"[]")}catch(e){data=[]}
+let data=[],editId=null;
 const $=id=>document.getElementById(id);
-const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){alert("Stockage impossible")}};
-const esc=s=>String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const fmt=d=>d?d.split("-").reverse().join("/"):"—";
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){alert("Stockage impossible")}};
+try{const j=JSON.parse(localStorage.getItem(KEY)||"[]");data=Array.isArray(j)?j:[]}catch(e){data=[]}
+
+/* ---------- Normalisation (anciennes données / import) ---------- */
+const cl=s=>String(s).toLowerCase().replace(/[^a-z0-9]/g,"");
+const AL={num:["num","numero","narrive","narr","arrive","n"],date:["date","datearrivee","datearrive"],min:["min","ministere"],obs:["obs","observation","observations"],rem:["rem","remis","dateremis"],ret:["ret","retirer","dateretirer"],so:["so","dateso"],rej:["rej","rejet","daterejet"]};
+const nd=v=>{if(v==null||v==="")return"";v=String(v);let m=v.match(/^(\d{4})-(\d{2})-(\d{2})/);if(m)return m[1]+"-"+m[2]+"-"+m[3];m=v.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);if(m)return m[3]+"-"+m[2].padStart(2,"0")+"-"+m[1].padStart(2,"0");return""};
+function norm(o){
+if(!o||typeof o!=="object"||Array.isArray(o))return null;
+const low={};Object.keys(o).forEach(k=>low[cl(k)]=o[k]);
+const r={};
+for(const f in AL){for(const a of AL[f]){const v=low[a];if(v!=null&&v!==""){r[f]=(f==="date"||f==="rem"||f==="ret"||f==="so"||f==="rej")?nd(v):String(v).trim();break}}}
+r.id=o.id?String(o.id):uid();
+const dn=low.done!=null?low.done:(low.termine!=null?low.termine:null);
+if(dn===true||dn==="true"||dn===1||dn==="1"){r.done=true;const dd=nd(low.donedate||low.datetermine);if(dd)r.doneDate=dd}
+r.num=r.num||"";r.date=r.date||"";r.obs=r.obs||"";r.min=r.min||"";
+return r}
+const sig=d=>[d.num,d.min,d.date].join("|");
+function merge(items){
+const ids=new Set(data.map(x=>x.id)),sg=new Set(data.filter(x=>x.num).map(sig));
+let n=0;
+items.forEach(d=>{if(!d||ids.has(d.id))return;if(d.num&&sg.has(sig(d)))return;ids.add(d.id);if(d.num)sg.add(sig(d));data.push(d);n++});
+return n}
+function scanOld(){
+const found=[];
+for(let i=0;i<localStorage.length;i++){
+const k=localStorage.key(i);if(k===KEY)continue;
+let v;try{v=JSON.parse(localStorage.getItem(k))}catch(e){continue}
+const arrs=[];
+if(Array.isArray(v))arrs.push(v);
+else if(v&&typeof v==="object")Object.values(v).forEach(x=>{if(Array.isArray(x))arrs.push(x)});
+arrs.forEach(a=>{const it=a.map(norm).filter(x=>x&&x.min&&(x.num||x.date));if(it.length)found.push({key:k,items:it})})}
+return found}
+function recover(auto){
+const found=scanOld();let n=0;const src=[];
+found.forEach(f=>{const c=merge(f.items);if(c){n+=c;src.push(f.key+" ("+c+")")}});
+if(n){save();render();alert(n+" dossier(s) récupéré(s) depuis : "+src.join(", "))}
+else if(!auto)alert("Aucune ancienne donnée trouvée sur cet appareil pour ce site.\nSi vous avez un fichier d'export (.json), utilisez « Importer ».")}
+
+/* ---------- Ministères ---------- */
+const allMin=()=>[...new Set([...MIN0,...data.map(d=>d.min).filter(Boolean)])];
+function fillSelects(){
+const L=allMin();
+["a_min","e_min"].forEach(id=>{const s=$(id),v=s.value;s.innerHTML=L.map(m=>`<option>${esc(m)}</option>`).join("");if(v&&L.includes(v))s.value=v});
+const f=$("fm"),fv=f.value;f.innerHTML='<option value="">Tous les ministères</option>'+L.map(m=>`<option>${esc(m)}</option>`).join("");f.value=L.includes(fv)?fv:""}
 
 function formHTML(p){return `
 <label>N° Arrivé</label><input type="text" inputmode="numeric" id="${p}num" placeholder="N° Arrivé">
 <label>Date</label><input type="date" id="${p}date">
-<label>Ministère</label><select id="${p}min">${MIN.map(m=>`<option>${m}</option>`).join("")}</select>
+<label>Ministère</label><select id="${p}min"></select>
 <label>Observations</label><textarea id="${p}obs" placeholder="Observations…"></textarea>
 <div class="row"><div><label class="k-rem">Date remis</label><input class="k-rem" type="date" id="${p}rem"></div>
 <div><label class="k-ret">Date retirer</label><input class="k-ret" type="date" id="${p}ret"></div></div>
@@ -107,22 +163,10 @@ function formHTML(p){return `
 <div><label class="k-rej">Date rejet</label><input class="k-rej" type="date" id="${p}rej"></div></div>`}
 $("addForm").innerHTML=formHTML("a_");
 $("editForm").innerHTML=formHTML("e_");
-$("fm").innerHTML+=MIN.map(m=>`<option>${m}</option>`).join("");
 
 function read(p){return{num:$(p+"num").value.trim(),date:$(p+"date").value,min:$(p+"min").value,obs:$(p+"obs").value.trim(),rem:$(p+"rem").value,ret:$(p+"ret").value,so:$(p+"so").value,rej:$(p+"rej").value}}
 function fill(p,d){$(p+"num").value=d.num||"";$(p+"date").value=d.date||"";$(p+"min").value=d.min;$(p+"obs").value=d.obs||"";$(p+"rem").value=d.rem||"";$(p+"ret").value=d.ret||"";$(p+"so").value=d.so||"";$(p+"rej").value=d.rej||""}
 function reset(){$("a_num").value="";$("a_date").value=new Date().toISOString().slice(0,10);$("a_obs").value="";$("a_rem").value="";$("a_ret").value="";$("a_so").value="";$("a_rej").value=""}
-
-function render(){
-const q=$("q").value.toLowerCase(),f=$("fm").value;
-const rows=data.filter(d=>!d.done&&(!f||d.min===f)&&(!q||(d.num+" "+d.min+" "+d.obs).toLowerCase().includes(q)))
-.sort((a,b)=>(b.date||"").localeCompare(a.date||""));
-$("list").innerHTML=rows.length?rows.map(d=>`<div class="card item">
-<h3>${d.num?"N° "+esc(d.num)+" · ":""}${esc(d.min)} <span class="muted" style="font-weight:400">· ${fmt(d.date)}</span></h3>
-${d.obs?`<p>${esc(d.obs)}</p>`:""}
-${(d.rem||d.ret||d.so||d.rej)?`<div class="badges">${d.rem?`<span class="bd k-rem">Remis : ${fmt(d.rem)}</span>`:""}${d.ret?`<span class="bd k-ret">Retirer : ${fmt(d.ret)}</span>`:""}${d.so?`<span class="bd k-so">S.O : ${fmt(d.so)}</span>`:""}${d.rej?`<span class="bd k-rej">Rejet : ${fmt(d.rej)}</span>`:""}</div>`:""}
-<div class="acts"><button class="sec sm" onclick="edit('${d.id}')">Modifier</button><button class="ok sm" onclick="fin('${d.id}')">Terminé</button><button class="del sm" onclick="del('${d.id}')">Supprimer</button></div>
-</div>`).join(""):`<p class="muted" style="text-align:center">Aucun dossier en cours.</p>`;dashboard()}
 
 function dashboard(){
 const st={};
@@ -131,20 +175,43 @@ const ks=Object.keys(st).sort((a,b)=>st[b].t-st[a].t||a.localeCompare(b));
 const T={t:0,r:0,f:0};ks.forEach(k=>{T.t+=st[k].t;T.r+=st[k].r;T.f+=st[k].f});
 $("dash").innerHTML=ks.length?`<table><thead><tr><th>Ministère</th><th>Total</th><th>Rejet</th><th>Terminé</th></tr></thead><tbody>${ks.map(k=>`<tr><td>${esc(k)}</td><td>${st[k].t}</td><td class="c-rej">${st[k].r}</td><td class="c-ok">${st[k].f}</td></tr>`).join("")}</tbody><tfoot><tr><td>TOTAL</td><td>${T.t}</td><td class="c-rej">${T.r}</td><td class="c-ok">${T.f}</td></tr></tfoot></table>`:`<p class="muted">Aucun dossier.</p>`}
 
+function render(){
+fillSelects();
+const q=$("q").value.toLowerCase(),f=$("fm").value,sd=$("sd").checked;
+const rows=data.filter(d=>(sd?!!d.done:!d.done)&&(!f||d.min===f)&&(!q||((d.num||"")+" "+d.min+" "+(d.obs||"")).toLowerCase().includes(q)))
+.sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+$("list").innerHTML=rows.length?rows.map(d=>`<div class="card item${d.done?" isdone":""}">
+<h3>${d.num?"N° "+esc(d.num)+" · ":""}${esc(d.min)} <span class="muted" style="font-weight:400">· ${fmt(d.date)}</span></h3>
+${d.obs?`<p>${esc(d.obs)}</p>`:""}
+${(d.rem||d.ret||d.so||d.rej||d.done)?`<div class="badges">${d.rem?`<span class="bd k-rem">Remis : ${fmt(d.rem)}</span>`:""}${d.ret?`<span class="bd k-ret">Retirer : ${fmt(d.ret)}</span>`:""}${d.so?`<span class="bd k-so">S.O : ${fmt(d.so)}</span>`:""}${d.rej?`<span class="bd k-rej">Rejet : ${fmt(d.rej)}</span>`:""}${d.done?`<span class="bd k-ok">✔ Terminé${d.doneDate?" : "+fmt(d.doneDate):""}</span>`:""}</div>`:""}
+<div class="acts"><button class="sec sm" onclick="edit('${d.id}')">Modifier</button>${d.done?`<button class="sec sm" onclick="reopen('${d.id}')">Rouvrir</button>`:`<button class="ok sm" onclick="fin('${d.id}')">Terminé</button>`}<button class="del sm" onclick="del('${d.id}')">Supprimer</button></div>
+</div>`).join(""):`<p class="muted" style="text-align:center">${sd?"Aucun dossier terminé.":"Aucun dossier en cours."}</p>`;
+dashboard()}
+
+const today=()=>new Date().toISOString().slice(0,10);
 $("addBtn").onclick=()=>{const d=read("a_");if(!d.date){alert("Choisissez une date");return}
-d.id=Date.now().toString(36);data.push(d);save();reset();render()};
-window.edit=id=>{editId=id;fill("e_",data.find(x=>x.id===id));$("dlg").showModal()};
-window.fin=id=>{if(confirm("Marquer ce dossier comme terminé ? Il disparaîtra de la liste mais restera compté dans le tableau de bord.")){const x=data.find(y=>y.id===id);if(x){x.done=true;x.doneDate=new Date().toISOString().slice(0,10);save();render()}}};
+d.id=uid();data.push(d);save();reset();render()};
+window.edit=id=>{const d=data.find(x=>x.id===id);if(!d)return;editId=id;fillSelects();fill("e_",d);$("dlg").showModal()};
 window.del=id=>{if(confirm("Supprimer ce dossier ?")){data=data.filter(x=>x.id!==id);save();render()}};
+window.fin=id=>{if(confirm("Marquer ce dossier comme terminé ? Il disparaîtra de la liste mais restera compté dans le tableau de bord.")){const x=data.find(y=>y.id===id);if(x){x.done=true;x.doneDate=today();save();render()}}};
+window.reopen=id=>{const x=data.find(y=>y.id===id);if(x){delete x.done;delete x.doneDate;save();render()}};
 $("saveBtn").onclick=()=>{const i=data.findIndex(x=>x.id===editId);if(i<0)return;data[i]={...data[i],...read("e_"),id:editId};save();$("dlg").close();render()};
+$("finBtn").onclick=()=>{const i=data.findIndex(x=>x.id===editId);if(i<0)return;if(!confirm("Marquer ce dossier comme terminé ?"))return;data[i]={...data[i],...read("e_"),id:editId,done:true,doneDate:today()};save();$("dlg").close();render()};
+$("delBtn").onclick=()=>{if(confirm("Supprimer ce dossier ?")){data=data.filter(x=>x.id!==editId);save();$("dlg").close();render()}};
 $("cancelBtn").onclick=()=>$("dlg").close();
-$("q").oninput=render;$("fm").onchange=render;
+$("q").oninput=render;$("fm").onchange=render;$("sd").onchange=render;
 
 $("exp").onclick=()=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,1)],{type:"application/json"}));a.download="ar-dossiers.json";a.click()};
 $("imp").onclick=()=>$("file").click();
-$("file").onchange=e=>{const r=new FileReader();r.onload=()=>{try{const j=JSON.parse(r.result);if(Array.isArray(j)){data=j;save();render()}}catch(x){alert("Fichier invalide")}};r.readAsText(e.target.files[0])};
+$("file").onchange=e=>{const fl=e.target.files[0];if(!fl)return;const r=new FileReader();r.onload=()=>{try{let j=JSON.parse(r.result);if(!Array.isArray(j)&&j&&typeof j==="object")j=Object.values(j).find(Array.isArray)||[];if(!Array.isArray(j))throw 0;const n=merge(j.map(norm).filter(Boolean));save();render();alert(n+" dossier(s) importé(s)")}catch(x){alert("Fichier invalide")}e.target.value=""};r.readAsText(fl)};
+$("rec").onclick=()=>recover(false);
 
-reset();render();
+reset();
+if(!data.length&&!localStorage.getItem("ar_recovered_v1")){try{localStorage.setItem("ar_recovered_v1","1")}catch(e){}recover(true)}
+render();
+try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
+const offl=()=>{$("offl").style.display=navigator.onLine?"none":"block"};
+addEventListener("online",offl);addEventListener("offline",offl);offl();
 let dp=null;
 addEventListener("beforeinstallprompt",e=>{e.preventDefault();dp=e;const b=$("instBtn");b.hidden=false;b.style.display="block"});
 $("instBtn").onclick=async()=>{if(!dp)return;dp.prompt();await dp.userChoice;dp=null;$("instBtn").style.display="none"};
