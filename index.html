@@ -141,9 +141,9 @@ arrs.forEach(a=>{const it=a.map(norm).filter(x=>x&&x.min&&(x.num||x.date));if(it
 return found}
 function recover(auto){
 const found=scanOld();let n=0;const src=[];
-found.forEach(f=>{const c=merge(f.items);if(c){n+=c;src.push(f.key+" ("+c+")")}});
+found.forEach(f=>{if(!confirm("Anciennes données trouvées : "+f.items.length+" dossier(s) dans « "+f.key+" ».\nLes récupérer dans cette application ?"))return;const c=merge(f.items);if(c){n+=c;src.push(f.key+" ("+c+")")}});
 if(n){save();render();alert(n+" dossier(s) récupéré(s) depuis : "+src.join(", "))}
-else if(!auto)alert("Aucune ancienne donnée trouvée sur cet appareil pour ce site.\nSi vous avez un fichier d'export (.json), utilisez « Importer ».")}
+else if(!auto&&!found.length)alert("Aucune ancienne donnée trouvée sur cet appareil pour ce site.\nSi vous avez un fichier d'export (.json), utilisez « Importer ».")}
 
 /* ---------- Ministères ---------- */
 const allMin=()=>[...new Set([...MIN0,...data.map(d=>d.min).filter(Boolean)])];
