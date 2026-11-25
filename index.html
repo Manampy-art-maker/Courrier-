@@ -7,7 +7,8 @@
 <meta name="theme-color" content="#0B2545">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Courrier</title>
 <style>
 :root{--navy:#0B2545;--blue:#13315C;--light:#EEF4ED;--acc:#F2B705;--bg:#F4F6FA;--tx:#0B2545;--card:#fff;--bd:#d5dce8}
@@ -58,6 +59,13 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 dialog form{padding:14px}
 .mbtn{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
 .mbtn button{flex:1 1 45%}
+.foot{max-width:640px;margin:0 auto;padding:6px 12px 28px;text-align:center}
+.stat{display:inline-block;font-size:13px;font-weight:600;padding:8px 14px;border-radius:999px;border:1px solid var(--bd);background:var(--card)}
+.stat.ok{color:#1e7d32;border-color:#1e7d32}
+.stat.wait{color:#9a6b00;border-color:#F2B705}
+.stat.warn{color:#b3261e;border-color:#b3261e}
+@media(prefers-color-scheme:dark){.stat.ok{color:#3fb950;border-color:#3fb950}.stat.wait{color:#F2B705}.stat.warn{color:#ff7b72;border-color:#ff7b72}}
+.ver{font-size:11px;opacity:.55;margin-top:6px}
 #offl{display:none;background:#b3261e;color:#fff;text-align:center;font-size:13px;padding:4px}
 </style>
 </head>
@@ -87,6 +95,10 @@ dialog form{padding:14px}
 <input type="file" id="file" accept="application/json" hidden>
 </div>
 </main>
+<footer class="foot">
+<div id="offStatus" class="stat wait">⏳ Préparation du mode hors ligne…</div>
+<div class="ver">Courrier · v9 · toutes les données restent sur cet appareil</div>
+</footer>
 
 <dialog id="dlg"><form method="dialog" onsubmit="return false">
 <h2 style="margin:0 0 4px;font-size:17px">Modifier le dossier</h2>
@@ -99,7 +111,7 @@ dialog form{padding:14px}
 </div></form></dialog>
 
 <script>
-const MIN0=["MEN MAN","MEN MAH","DRSP","CNCT","POLICE","ENVIRONMENT","SDSP II","SDSP F/ho","SRSP","DOUANE","SRB","CF","CRM","ECONOMIE","TRESOR","IMPOT","Topo","Domaine","Amenag","Fop","Inter","Techn","CHRD","AFFECTATIONS"];
+const MIN0=["MEN MAN","MEN MAH","DRSP","CNCT","POLICE","ENVIRONMENT","SDSP II","SDSP F/ho","SRSP","DOUANE","SRB","CF","CRM","ECONOMIE","TRESOR","IMPOT","Topo","Domaine","Amenag","Fop","Inter","Techn","CHRD","AFFECTATIONS","Travaux"];
 const KEY="ar_dossiers_v1";
 let data=[],editId=null;
 const $=id=>document.getElementById(id);
@@ -141,9 +153,9 @@ arrs.forEach(a=>{const it=a.map(norm).filter(x=>x&&x.min&&(x.num||x.date));if(it
 return found}
 function recover(auto){
 const found=scanOld();let n=0;const src=[];
-found.forEach(f=>{if(!confirm("Anciennes données trouvées : "+f.items.length+" dossier(s) dans « "+f.key+" ».\nLes récupérer dans cette application ?"))return;const c=merge(f.items);if(c){n+=c;src.push(f.key+" ("+c+")")}});
+found.forEach(f=>{const c=merge(f.items);if(c){n+=c;src.push(f.key+" ("+c+")")}});
 if(n){save();render();alert(n+" dossier(s) récupéré(s) depuis : "+src.join(", "))}
-else if(!auto&&!found.length)alert("Aucune ancienne donnée trouvée sur cet appareil pour ce site.\nSi vous avez un fichier d'export (.json), utilisez « Importer ».")}
+else if(!auto)alert("Aucune ancienne donnée trouvée sur cet appareil pour ce site.\nSi vous avez un fichier d'export (.json), utilisez « Importer ».")}
 
 /* ---------- Ministères ---------- */
 const allMin=()=>[...new Set([...MIN0,...data.map(d=>d.min).filter(Boolean)])];
@@ -216,7 +228,23 @@ let dp=null;
 addEventListener("beforeinstallprompt",e=>{e.preventDefault();dp=e;const b=$("instBtn");b.hidden=false;b.style.display="block"});
 $("instBtn").onclick=async()=>{if(!dp)return;dp.prompt();await dp.userChoice;dp=null;$("instBtn").style.display="none"};
 addEventListener("appinstalled",()=>{$("instBtn").style.display="none"});
-if("serviceWorker" in navigator)addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js").catch(()=>{}));
+/* ---------- Mode hors ligne : enregistrement + vérification ---------- */
+async function offStatus(){
+const el=$("offStatus");
+const set=(c,t)=>{el.className="stat "+c;el.textContent=t};
+try{
+if(!("serviceWorker" in navigator)||!window.caches){set("warn","⚠ Ce navigateur ne gère pas le mode hors ligne complet. Les données restent quand même sur l'appareil.");return}
+const r=await caches.match("./index.html",{ignoreSearch:true});
+if(r&&navigator.serviceWorker.controller)set("ok","✔ Prêt : l'application fonctionne sans connexion internet");
+else if(r)set("ok","✔ Prêt : fermez puis rouvrez l'application pour activer le mode hors ligne");
+else set("wait","⏳ Préparation du mode hors ligne… gardez internet quelques secondes")
+}catch(e){set("warn","⚠ Vérification hors ligne impossible. Les données restent sur l'appareil.")}
+}
+if("serviceWorker" in navigator){
+navigator.serviceWorker.register("service-worker.js",{scope:"./"}).then(()=>navigator.serviceWorker.ready).then(()=>{offStatus();setTimeout(offStatus,2500)}).catch(()=>offStatus());
+navigator.serviceWorker.addEventListener("controllerchange",offStatus);
+}else offStatus();
+addEventListener("online",()=>setTimeout(offStatus,800));
 </script>
 </body>
 </html>
